@@ -1,0 +1,363 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-ms
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      role: user-ms
+  template:
+    metadata:
+      labels:
+        role: user-ms
+    spec:
+      containers:
+      - name: user-ms
+        image: stebancastro/user-ms-tesis:0.0.1-amd64
+        env:
+        - name: DB_HOST
+          value: "postgres-db"
+        - name: SERVER_PORT
+          value: "8080"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "user-ms-db"
+        - name: DB_USER
+          valueFrom:
+              secretKeyRef:
+                name: db-credentials-users
+                key: user
+        - name: DB_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                name: db-credentials-users
+                key: password
+        readinessProbe:
+          httpGet:
+            path: /user-ms/health-check
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        ports:
+        - containerPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-ms
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    role: user-ms
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: public-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      role: public-api
+  template:
+    metadata:
+      labels:
+        role: public-api
+    spec:
+      containers:
+      - name: public-api
+        image: stebancastro/public-api-tesis:0.0.1-amd64
+        env:
+        - name: JWT_KEY
+          value: "Holis"
+        - name: SERVER_PORT
+          value: "8080"
+        - name: USER_MS_URL
+          value: "http://user-ms:8080/user-ms"
+        - name: INTEGRATION_MS_URL
+          value: "http://integration-ms:8080/integration-ms"
+        - name: RUNNER_MS_URL
+          value: "http://runner-ms:8080/runner-ms"
+        - name: QUERY_MS_URL
+          value: "http://query-ms:8080/query-ms"
+        readinessProbe:
+          httpGet:
+            path: /public-api/health-check
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        ports:
+        - containerPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: public-api
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    role: public-api
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: integration-ms
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      role: integration-ms
+  template:
+    metadata:
+      labels:
+        role: integration-ms
+    spec:
+      containers:
+      - name: integration-ms
+        image: stebancastro/integration-ms-tesis:0.0.1-amd64
+        env:
+        - name: DATABASE_HOST
+          value: "postgres-db"
+        - name: RUNNER_MS_URL
+          value: "http://runner-ms:8080"
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: DATABASE_NAME
+          value: "integration-ms-db"
+        - name: DATABASE_USERNAME
+          valueFrom:
+              secretKeyRef:
+                name: db-credentials-integration
+                key: user
+        - name: DATABASE_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                name: db-credentials-integration
+                key: password
+        readinessProbe:
+          httpGet:
+            path: /integration-ms/health-check
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        ports:
+        - containerPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: integration-ms
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    role: integration-ms
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: runner-ms
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      role: runner-ms
+  template:
+    metadata:
+      labels:
+        role: runner-ms
+    spec:
+      containers:
+      - name: runner-ms
+        image: stebancastro/runner-ms-tesis:0.0.2-amd64
+        env:
+        - name: DATABASE_HOST
+          value: "postgres-db"
+        - name: QUERY_MS_URL
+          value: "http://query-ms:8080"
+        - name: QUERY_BUILDER_MS_URL
+          value: "http://query-builder-ms:8080"
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: DATABASE_NAME
+          value: "integration-ms-db"
+        - name: DATABASE_USERNAME
+          valueFrom:
+              secretKeyRef:
+                name: db-credentials-integration
+                key: user
+        - name: DATABASE_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                name: db-credentials-integration
+                key: password
+        readinessProbe:
+          httpGet:
+            path: /runner-ms/health-check
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        ports:
+        - containerPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: runner-ms
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    role: runner-ms
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: query-ms
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      role: query-ms
+  template:
+    metadata:
+      labels:
+        role: query-ms
+    spec:
+      containers:
+      - name: query-ms
+        image: stebancastro/query-ms-tesis:0.0.1-amd64
+        env:
+        - name: DATABASE_HOST
+          value: "postgres-db"
+        - name: INTEGRATION_MS_URL
+          value: "http://integration-ms:8080"
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: DATABASE_NAME
+          value: "query-ms-db"
+        - name: DATABASE_USERNAME
+          valueFrom:
+              secretKeyRef:
+                name: db-credentials-query
+                key: user
+        - name: DATABASE_PASSWORD
+          valueFrom:
+              secretKeyRef:
+                name: db-credentials-query
+                key: password
+        readinessProbe:
+          httpGet:
+            path: /query-ms/health-check
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        ports:
+        - containerPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: query-ms
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    role: query-ms
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: query-builder-ms
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      role: query-builder-ms
+  template:
+    metadata:
+      labels:
+        role: query-builder-ms
+    spec:
+      containers:
+      - name: query-ms
+        image: stebancastro/query-builder-ms-tesis:0.0.1-amd64
+        readinessProbe:
+          httpGet:
+            path: /query-builder-ms/health-check
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        ports:
+        - containerPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: query-builder-ms
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    role: query-builder-ms
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      role: frontend
+  template:
+    metadata:
+      labels:
+        role: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: stebancastro/frontend-tesis:0.0.3-amd64
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        ports:
+        - containerPort: 3000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-svc
+spec:
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    role: frontend
